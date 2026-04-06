@@ -1,0 +1,49 @@
+name: Auto update Svoboda from source
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download from source (Temnuk/naabuzil)
+        run: |
+          curl -L -o source.txt https://raw.githubusercontent.com/Temnuk/naabuzil/main/Svoboda
+          
+          # Пропускаем первые 5 строк исходного файла
+          tail -n +6 source.txt > body.txt
+
+      - name: Create new file with custom header
+        run: |
+          # Записываем новый заголовок
+          cat > Svoboda.txt << 'EOF'
+          #profile-title: 🗽 Izzzy VPN
+          #announce: 🔰 Если перестали работать обновите ключ в боте @izzzy_vpn_bot
+          #profile-update-interval: 2
+          #support-url: https://t.me/parvizwp
+          #profile-web-page-url: https://t.me/parvizwp
+          EOF
+          
+          # Добавляем тело файла (без первых 5 строк оригинала)
+          cat body.txt >> Svoboda.txt
+          
+          # Показываем первые 10 строк результата для проверки
+          echo "=== Первые 10 строк нового файла ==="
+          head -10 Svoboda.txt
+
+      - name: Commit and push to your repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Svoboda.txt
+          git diff --staged --quiet || git commit -m "Auto update: $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
