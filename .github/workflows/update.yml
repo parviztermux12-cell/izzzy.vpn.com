@@ -29,8 +29,8 @@ jobs:
       - name: Create new file with your header
         run: |
           cat > Svoboda.txt << 'EOF'
-          #profile-title: 🗽 Izzzy VPN
-          #announce: 🔰 Если перестали работать обновите ключ в боте @izzzy_vpn_bot
+          #profile-title: 🍇 Izzzy VPN
+          #announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
           #profile-update-interval: 2
           #support-url: https://t.me/parvizwp
           #profile-web-page-url: https://t.me/parvizwp
