@@ -1,5 +1,5 @@
-#profile-title: 🗽 Izzzy VPN
-#announce: 🔰 Если перестали работать обновите ключ в боте @izzzy_vpn_bot
+#profile-title: ☁️ Izzzy VPN
+#announce: 🍇 По поводам вопросов писать в тг @parvizwp
 #profile-update-interval: 2
 #support-url: https://t.me/parvizwp
 #profile-web-page-url: https://t.me/parvizwp
