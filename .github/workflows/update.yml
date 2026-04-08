@@ -1,0 +1,69 @@
+name: Auto update Svoboda from source
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Download from Temnuk/naabuzil
+        run: |
+          curl -L -o source.txt https://raw.githubusercontent.com/Temnuk/naabuzil/main/Svoboda
+          echo "=== Source content ==="
+          cat source.txt
+          echo ""
+          echo "=== Line count ==="
+          wc -l source.txt
+
+      - name: Extract body (skip header if exists)
+        run: |
+          TOTAL_LINES=$(wc -l < source.txt)
+          if [ "$TOTAL_LINES" -gt 5 ]; then
+            tail -n +6 source.txt > body.txt
+            echo "Removed first 5 lines, body lines: $(wc -l < body.txt)"
+          else
+            cp source.txt body.txt
+            echo "File has less than 6 lines, using entire file as body"
+          fi
+
+      - name: Create new file with your header
+        run: |
+          cat > Svoboda.txt << 'EOF'
+#profile-title: 🍇 Izzzy VPN
+#announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
+#profile-update-interval: 2
+#subscription-userinfo: upload=0; download=0; total=50000000000000000; expire=33333306000
+#support-url: https://t.me/parvizwp
+#profile-web-page-url: https://t.me/parvizwp
+
+EOF
+          cat body.txt >> Svoboda.txt
+
+          echo "=== New file first 7 lines ==="
+          head -7 Svoboda.txt
+          echo ""
+          echo "=== Total lines in new file ==="
+          wc -l Svoboda.txt
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Svoboda.txt
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto update Svoboda $(date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
