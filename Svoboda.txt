@@ -1,6 +1,7 @@
 #profile-title: 🍇 Izzzy VPN
 #announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
 #profile-update-interval: 2
+#subscription-userinfo: upload=0; download=0; total=50000000000000000; expire=33333306000
 #support-url: https://t.me/parvizwp
 #profile-web-page-url: https://t.me/parvizwp
 
