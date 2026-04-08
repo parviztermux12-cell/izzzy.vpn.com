@@ -1,0 +1,45 @@
+name: Update Svoboda.txt
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Каждый час в 0 минут
+  workflow_dispatch:     # Можно запустить вручную
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Download original Svoboda
+        run: |
+          curl -L "https://raw.githubusercontent.com/Temnuk/naabuzil/b355813f62e974066cec215f797e456e82d8cf8d/Svoboda" -o original.txt
+          
+      - name: Replace first 6 lines
+        run: |
+          # Новые заголовки
+          echo '#profile-title: 🍇 Izzzy VPN' > new_header.txt
+          echo '#announce: 🔰 По каким-то вопросам пишите в тг @parvizwp' >> new_header.txt
+          echo '#profile-update-interval: 2' >> new_header.txt
+          echo '#subscription-userinfo: upload=0; download=0; total=50000000000000000; expire=33333306000' >> new_header.txt
+          echo '#support-url: https://t.me/parvizwp' >> new_header.txt
+          echo '#profile-web-page-url: https://t.me/parvizwp' >> new_header.txt
+          
+          # Пропускаем первые 6 строк оригинала и добавляем остальное
+          tail -n +7 original.txt > rest_content.txt
+          
+          # Объединяем
+          cat new_header.txt rest_content.txt > Svoboda.txt
+          
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Svoboda.txt
+          git diff --staged --quiet || git commit -m "Auto-update Svoboda.txt $(date '+%Y-%m-%d %H:%M:%S')"
+          git push
