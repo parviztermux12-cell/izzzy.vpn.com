@@ -29,21 +29,23 @@ jobs:
       - name: Create new file with your header
         run: |
           cat > Svoboda.txt << 'EOF'
-          #profile-title: 🍇 Izzzy VPN
-          #announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
-          #profile-update-interval: 2
-          #support-url: https://t.me/parvizwp
-          #profile-web-page-url: https://t.me/parvizwp
-          EOF
+#profile-title: 🍇 Izzzy VPN
+#announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
+#profile-update-interval: 2
+#subscription-userinfo: upload=0; download=0; total=50000000000000000; expire=33333306000
+#support-url: https://t.me/parvizwp
+#profile-web-page-url: https://t.me/parvizwp
+
+EOF
           cat body.txt >> Svoboda.txt
-          
-          echo "=== New file first 5 lines ==="
-          head -5 Svoboda.txt
+
+          echo "=== New file first 7 lines ==="
+          head -7 Svoboda.txt
 
       - name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add Svoboda.txt
-          git diff --staged --quiet || git commit -m "Auto update $(date '+%Y-%m-%d %H:%M:%S')"
+          git diff --staged --quiet || git commit -m "Auto update Svoboda $(date '+%Y-%m-%d %H:%M:%S')"
           git push
