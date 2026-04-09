@@ -1,0 +1,158 @@
+      - name: Filter and test nodes
+        run: |
+          # Список стран с флагами (расширенный)
+          countries=(
+            "🇺🇸 США" "🇬🇧 Великобритания" "🇩🇪 Германия" "🇫🇷 Франция"
+            "🇳🇱 Нидерланды" "🇨🇦 Канада" "🇯🇵 Япония" "🇦🇺 Австралия"
+            "🇨🇭 Швейцария" "🇸🇪 Швеция" "🇳🇴 Норвегия" "🇩🇰 Дания"
+            "🇫🇮 Финляндия" "🇧🇪 Бельгия" "🇦🇹 Австрия" "🇪🇸 Испания"
+            "🇮🇹 Италия" "🇵🇱 Польша" "🇨🇿 Чехия" "🇬🇷 Греция"
+            "🇵🇹 Португалия" "🇮🇪 Ирландия" "🇷🇺 Россия" "🇺🇦 Украина"
+            "🇰🇿 Казахстан" "🇮🇳 Индия" "🇸🇬 Сингапур" "🇰🇷 Южная Корея"
+          )
+          
+          # Улучшенная функция тестирования с реальным пингом
+          test_vless() {
+            local url="$1"
+            local name="$2"
+            
+            # Извлекаем хост
+            local host=$(echo "$url" | grep -oP '@\K[^:?]+')
+            [[ -z "$host" ]] && return 1
+            
+            # Быстрая проверка порта (только самые популярные)
+            local port=$(echo "$url" | grep -oP ':\d+(?=\?|&|#|$)' | head -1 | cut -d':' -f2)
+            [[ -z "$port" ]] && port=443
+            
+            # Проверка доступности хоста (быстрее чем nc)
+            if ! timeout 2 bash -c "echo >/dev/tcp/$host/$port" 2>/dev/null; then
+              return 1
+            fi
+            
+            # Измеряем пинг (4 пакета для точности)
+            local ping_result=$(ping -c 4 -W 2 "$host" 2>/dev/null | tail -1)
+            local ping_time=$(echo "$ping_result" | awk -F'/' '{print $5}')
+            
+            # Проверяем пинг и наличие потери пакетов
+            local loss=$(ping -c 4 -W 2 "$host" 2>/dev/null | grep -oP '\d+(?=% packet loss)' | head -1)
+            [[ -z "$loss" ]] && loss=100
+            
+            # Условия работоспособности: пинг < 3000мс и потери < 30%
+            if [[ -n "$ping_time" ]] && (( $(echo "$ping_time < 3000" | bc -l) )) && [[ $loss -lt 30 ]]; then
+              # Округляем пинг до целого
+              ping_rounded=$(printf "%.0f" "$ping_time")
+              echo "WORKING|${ping_rounded}|${loss}|${url}|${name}"
+              return 0
+            fi
+            return 1
+          }
+          
+          # СОЗДАЁМ НОВЫЕ ЗАГОЛОВКИ (БЕСКОНЕЧНЫЙ ТРАФИК)
+          cat > headers.txt << 'EOF'
+#profile-title: 🍇 Izzzy VPN
+#announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
+#profile-update-interval: 1
+#subscription-userinfo: upload=0; download=0; total=0; expire=0
+#support-url: https://t.me/parvizwp
+#profile-web-page-url: https://t.me/parvizwp
+EOF
+          
+          # Инициализация файлов
+          > filtered.txt
+          > new_links.txt
+          > debug.log
+          > working_nodes.txt
+          
+          echo "🚀 Начинаем проверку узлов..." >> debug.log
+          echo "⏰ Время: $(date)" >> debug.log
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
+          
+          # Счётчики
+          total_nodes=0
+          working_nodes=0
+          removed_torrent=0
+          renamed_nodes=0
+          
+          # Пропускаем заголовки исходного файла (первые 6 строк)
+          tail -n +7 original.txt | while IFS= read -r line; do
+            # Пропускаем пустые строки
+            [[ -z "$line" ]] && continue
+            ((total_nodes++))
+            
+            # Удаляем ключи с Torrent в названии
+            if echo "$line" | grep -qi "torrent"; then
+              echo "❌ УДАЛЕН (Torrent): ${line:0:80}..." >> debug.log
+              ((removed_torrent++))
+              continue
+            fi
+            
+            # Извлекаем URL и имя
+            if [[ "$line" =~ ^vless://([^#]+)#(.*)$ ]]; then
+              url_part="${BASH_REMATCH[1]}"
+              old_name="${BASH_REMATCH[2]}"
+              old_name_clean=$(echo "$old_name" | sed 's/[[:space:]]*$//')
+              
+              # Проверяем, нужно ли переименовать
+              if echo "$old_name_clean" | grep -qiE "универсальный|universal|auto|default"; then
+                # Генерируем случайную страну
+                random_country=${countries[$RANDOM % ${#countries[@]}]}
+                new_name="$random_country"
+                ((renamed_nodes++))
+              else
+                # Оставляем оригинальное имя, но убираем эмодзи если они кривые
+                new_name=$(echo "$old_name_clean" | sed 's/^[^a-zA-Zа-яА-Я]*//')
+              fi
+              
+              # Полный URL с новым именем (без лишних пробелов)
+              full_url="vless://${url_part}#${new_name}"
+              
+              # Тестируем узел
+              if result=$(test_vless "$url_part" "$new_name"); then
+                IFS='|' read -r _ ping_time loss _ _ <<< "$result"
+                echo "$full_url" >> new_links.txt
+                echo "✅ $new_name | Пинг: ${ping_time}ms | Потери: ${loss}%" >> working_nodes.txt
+                echo "✅ РАБОТАЕТ: $new_name (${ping_time}ms, loss ${loss}%)" >> debug.log
+                ((working_nodes++))
+              else
+                echo "⚠️ НЕ РАБОТАЕТ: $new_name" >> debug.log
+              fi
+            else
+              # Сохраняем другие строки как есть
+              echo "$line" >> filtered.txt
+            fi
+          done
+          
+          # Сортируем рабочие узлы по пингу (от лучшего к худшему)
+          if [[ -s working_nodes.txt ]]; then
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
+            echo "📊 ТОП-10 ЛУЧШИХ УЗЛОВ ПО ПИНГУ:" >> debug.log
+            sort -t'|' -k2 -n working_nodes.txt | head -10 >> debug.log
+          fi
+          
+          # Собираем финальный файл
+          cat headers.txt > Svoboda.txt
+          echo "" >> Svoboda.txt
+          
+          # Добавляем комментарий с датой (опционально, клиенты игнорируют)
+          echo "# Last updated: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> Svoboda.txt
+          echo "# Working nodes: $working_nodes" >> Svoboda.txt
+          echo "" >> Svoboda.txt
+          
+          cat filtered.txt >> Svoboda.txt
+          cat new_links.txt >> Svoboda.txt
+          
+          # Финальная статистика
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
+          echo "📊 СТАТИСТИКА ПРОВЕРКИ:" >> debug.log
+          echo "   Всего узлов в файле: $total_nodes" >> debug.log
+          echo "   ✅ Рабочих узлов: $working_nodes" >> debug.log
+          echo "   ❌ Удалено (Torrent): $removed_torrent" >> debug.log
+          echo "   ✏️ Переименовано: $renamed_nodes" >> debug.log
+          echo "   📁 Файл сохранен: Svoboda.txt" >> debug.log
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
+          
+          # Выводим в консоль (для логов GitHub Actions)
+          cat debug.log
+          
+          # Сохраняем количество рабочих узлов в переменную для коммита
+          echo "WORKING_COUNT=$working_nodes" >> $GITHUB_ENV
