@@ -1,53 +1,53 @@
+   name: Update Svoboda.txt
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc
+          
+      - name: Download original Svoboda
+        run: |
+          curl -L "https://raw.githubusercontent.com/Temnuk/naabuzil/b355813f62e974066cec215f797e456e82d8cf8d/Svoboda" -o original.txt
+          
       - name: Filter and test nodes
         run: |
-          # Список стран с флагами (расширенный)
+          # Список стран с флагами
           countries=(
             "🇺🇸 США" "🇬🇧 Великобритания" "🇩🇪 Германия" "🇫🇷 Франция"
             "🇳🇱 Нидерланды" "🇨🇦 Канада" "🇯🇵 Япония" "🇦🇺 Австралия"
-            "🇨🇭 Швейцария" "🇸🇪 Швеция" "🇳🇴 Норвегия" "🇩🇰 Дания"
-            "🇫🇮 Финляндия" "🇧🇪 Бельгия" "🇦🇹 Австрия" "🇪🇸 Испания"
-            "🇮🇹 Италия" "🇵🇱 Польша" "🇨🇿 Чехия" "🇬🇷 Греция"
-            "🇵🇹 Португалия" "🇮🇪 Ирландия" "🇷🇺 Россия" "🇺🇦 Украина"
+            "🇨🇭 Швейцария" "🇸🇪 Швеция" "🇫🇮 Финляндия" "🇩🇰 Дания"
+            "🇪🇸 Испания" "🇮🇹 Италия" "🇵🇱 Польша" "🇷🇺 Россия"
             "🇰🇿 Казахстан" "🇮🇳 Индия" "🇸🇬 Сингапур" "🇰🇷 Южная Корея"
           )
           
-          # Улучшенная функция тестирования с реальным пингом
-          test_vless() {
-            local url="$1"
-            local name="$2"
+          # Функция тестирования
+          test_node() {
+            local host="$1"
+            local port="$2"
             
-            # Извлекаем хост
-            local host=$(echo "$url" | grep -oP '@\K[^:?]+')
-            [[ -z "$host" ]] && return 1
-            
-            # Быстрая проверка порта (только самые популярные)
-            local port=$(echo "$url" | grep -oP ':\d+(?=\?|&|#|$)' | head -1 | cut -d':' -f2)
-            [[ -z "$port" ]] && port=443
-            
-            # Проверка доступности хоста (быстрее чем nc)
-            if ! timeout 2 bash -c "echo >/dev/tcp/$host/$port" 2>/dev/null; then
-              return 1
-            fi
-            
-            # Измеряем пинг (4 пакета для точности)
-            local ping_result=$(ping -c 4 -W 2 "$host" 2>/dev/null | tail -1)
-            local ping_time=$(echo "$ping_result" | awk -F'/' '{print $5}')
-            
-            # Проверяем пинг и наличие потери пакетов
-            local loss=$(ping -c 4 -W 2 "$host" 2>/dev/null | grep -oP '\d+(?=% packet loss)' | head -1)
-            [[ -z "$loss" ]] && loss=100
-            
-            # Условия работоспособности: пинг < 3000мс и потери < 30%
-            if [[ -n "$ping_time" ]] && (( $(echo "$ping_time < 3000" | bc -l) )) && [[ $loss -lt 30 ]]; then
-              # Округляем пинг до целого
-              ping_rounded=$(printf "%.0f" "$ping_time")
-              echo "WORKING|${ping_rounded}|${loss}|${url}|${name}"
-              return 0
-            fi
+            # Проверка доступности порта
+            timeout 2 bash -c "echo >/dev/tcp/$host/$port" 2>/dev/null && return 0
             return 1
           }
           
-          # СОЗДАЁМ НОВЫЕ ЗАГОЛОВКИ (БЕСКОНЕЧНЫЙ ТРАФИК)
+          # Заголовки (бесконечный трафик)
           cat > headers.txt << 'EOF'
 #profile-title: 🍇 Izzzy VPN
 #announce: 🔰 По каким-то вопросам пишите в тг @parvizwp
@@ -57,8 +57,7 @@
 #profile-web-page-url: https://t.me/parvizwp
 EOF
           
-          # Инициализация файлов
-          > filtered.txt
+          # Инициализация
           > new_links.txt
           > debug.log
           > working_nodes.txt
@@ -67,22 +66,25 @@ EOF
           echo "⏰ Время: $(date)" >> debug.log
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
           
-          # Счётчики
-          total_nodes=0
-          working_nodes=0
-          removed_torrent=0
-          renamed_nodes=0
+          # Временные файлы для счётчиков
+          touch /tmp/total_nodes /tmp/working_nodes /tmp/removed_torrent /tmp/renamed_nodes
+          echo "0" > /tmp/total_nodes
+          echo "0" > /tmp/working_nodes
+          echo "0" > /tmp/removed_torrent
+          echo "0" > /tmp/renamed_nodes
           
           # Пропускаем заголовки исходного файла (первые 6 строк)
           tail -n +7 original.txt | while IFS= read -r line; do
             # Пропускаем пустые строки
             [[ -z "$line" ]] && continue
-            ((total_nodes++))
+            
+            # Увеличиваем счётчик
+            echo $(( $(cat /tmp/total_nodes) + 1 )) > /tmp/total_nodes
             
             # Удаляем ключи с Torrent в названии
             if echo "$line" | grep -qi "torrent"; then
-              echo "❌ УДАЛЕН (Torrent): ${line:0:80}..." >> debug.log
-              ((removed_torrent++))
+              echo "❌ УДАЛЕН (Torrent)" >> debug.log
+              echo $(( $(cat /tmp/removed_torrent) + 1 )) > /tmp/removed_torrent
               continue
             fi
             
@@ -90,55 +92,50 @@ EOF
             if [[ "$line" =~ ^vless://([^#]+)#(.*)$ ]]; then
               url_part="${BASH_REMATCH[1]}"
               old_name="${BASH_REMATCH[2]}"
-              old_name_clean=$(echo "$old_name" | sed 's/[[:space:]]*$//')
+              
+              # Очищаем имя от мусора
+              old_name_clean=$(echo "$old_name" | sed 's/[[:space:]]*$//' | cut -c1-50)
               
               # Проверяем, нужно ли переименовать
               if echo "$old_name_clean" | grep -qiE "универсальный|universal|auto|default"; then
-                # Генерируем случайную страну
                 random_country=${countries[$RANDOM % ${#countries[@]}]}
                 new_name="$random_country"
-                ((renamed_nodes++))
+                echo $(( $(cat /tmp/renamed_nodes) + 1 )) > /tmp/renamed_nodes
               else
-                # Оставляем оригинальное имя, но убираем эмодзи если они кривые
-                new_name=$(echo "$old_name_clean" | sed 's/^[^a-zA-Zа-яА-Я]*//')
+                new_name="$old_name_clean"
               fi
               
-              # Полный URL с новым именем (без лишних пробелов)
-              full_url="vless://${url_part}#${new_name}"
+              # Извлекаем хост и порт для теста
+              host=$(echo "$url_part" | grep -oE '@[^:?]+' | sed 's/@//')
+              port=$(echo "$url_part" | grep -oE ':[0-9]+' | head -1 | sed 's/://')
+              [[ -z "$port" ]] && port=443
               
               # Тестируем узел
-              if result=$(test_vless "$url_part" "$new_name"); then
-                IFS='|' read -r _ ping_time loss _ _ <<< "$result"
+              if test_node "$host" "$port"; then
+                full_url="vless://${url_part}#${new_name}"
                 echo "$full_url" >> new_links.txt
-                echo "✅ $new_name | Пинг: ${ping_time}ms | Потери: ${loss}%" >> working_nodes.txt
-                echo "✅ РАБОТАЕТ: $new_name (${ping_time}ms, loss ${loss}%)" >> debug.log
-                ((working_nodes++))
+                echo "✅ $new_name | $host:$port" >> working_nodes.txt
+                echo "✅ РАБОТАЕТ: $new_name ($host:$port)" >> debug.log
+                echo $(( $(cat /tmp/working_nodes) + 1 )) > /tmp/working_nodes
               else
-                echo "⚠️ НЕ РАБОТАЕТ: $new_name" >> debug.log
+                echo "⚠️ НЕ РАБОТАЕТ: $new_name ($host:$port)" >> debug.log
               fi
-            else
-              # Сохраняем другие строки как есть
-              echo "$line" >> filtered.txt
             fi
           done
           
-          # Сортируем рабочие узлы по пингу (от лучшего к худшему)
-          if [[ -s working_nodes.txt ]]; then
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
-            echo "📊 ТОП-10 ЛУЧШИХ УЗЛОВ ПО ПИНГУ:" >> debug.log
-            sort -t'|' -k2 -n working_nodes.txt | head -10 >> debug.log
-          fi
+          # Считываем итоговые значения
+          total_nodes=$(cat /tmp/total_nodes 2>/dev/null || echo "0")
+          working_nodes=$(cat /tmp/working_nodes 2>/dev/null || echo "0")
+          removed_torrent=$(cat /tmp/removed_torrent 2>/dev/null || echo "0")
+          renamed_nodes=$(cat /tmp/renamed_nodes 2>/dev/null || echo "0")
           
           # Собираем финальный файл
           cat headers.txt > Svoboda.txt
           echo "" >> Svoboda.txt
-          
-          # Добавляем комментарий с датой (опционально, клиенты игнорируют)
           echo "# Last updated: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> Svoboda.txt
           echo "# Working nodes: $working_nodes" >> Svoboda.txt
           echo "" >> Svoboda.txt
           
-          cat filtered.txt >> Svoboda.txt
           cat new_links.txt >> Svoboda.txt
           
           # Финальная статистика
@@ -151,8 +148,30 @@ EOF
           echo "   📁 Файл сохранен: Svoboda.txt" >> debug.log
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> debug.log
           
-          # Выводим в консоль (для логов GitHub Actions)
+          # Выводим в консоль
           cat debug.log
           
-          # Сохраняем количество рабочих узлов в переменную для коммита
+          # Сохраняем количество для коммита
           echo "WORKING_COUNT=$working_nodes" >> $GITHUB_ENV
+          
+          # Удаляем временные файлы
+          rm -f /tmp/total_nodes /tmp/working_nodes /tmp/removed_torrent /tmp/renamed_nodes
+          
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Получаем последние изменения с удалённого репозитория
+          git pull origin main --rebase || git pull origin main --no-rebase
+          
+          # Проверяем, есть ли изменения в файле
+          if git diff --quiet Svoboda.txt; then
+            echo "No changes detected"
+          else
+            git add Svoboda.txt debug.log 2>/dev/null || git add Svoboda.txt
+            git commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S') - Working nodes: ${{ env.WORKING_COUNT }}"
+            
+            # Пытаемся запушить
+            git push origin main || (git pull origin main --rebase && git push origin main)
+          fi
