@@ -1,3 +1,10 @@
+#profile-title: ⚡ Izzzy VPN
+#announce: 🔰 По каким-то вопросам пишите в тг @parvizwp. Если не работает - обновите подписку нажав на 🔄
+#profile-update-interval: 1
+#subscription-userinfo: upload=0; download=0; total=0; expire=0
+#support-url: https://t.me/parvizwp
+#profile-web-page-url: https://t.me/parvizwp
+
 vless://91bbe282-f2ba-46a6-8752-36ae55279169@avstrianoda.normbot.ru:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=avstrianoda.normbot.ru&fp=random&pbk=pgG2grngQEtOFJImLfz0AEm-O2IodM2jCY4aMCYQI1U&sid=6aa2d2e950441a9a&spx=%2F&type=tcp#🇦🇹%20Австрия%20%231
 vless://91bbe282-f2ba-46a6-8752-36ae55279169@cdn.normbot.ru:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=cdn.normbot.ru&fp=random&pbk=pgG2grngQEtOFJImLfz0AEm-O2IodM2jCY4aMCYQI1U&sid=b2a6e3d42f05c3d1&spx=%2F&type=tcp#🇧🇾%20Беларусь%20%231
 vless://91bbe282-f2ba-46a6-8752-36ae55279169@213.193.252.98:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=velik.normbot.ru&fp=chrome&pbk=pgG2grngQEtOFJImLfz0AEm-O2IodM2jCY4aMCYQI1U&sid=4d2c4fa29e40fb49&spx=%2F&type=tcp#🇬🇧%20Великобритания%20%231
