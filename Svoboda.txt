@@ -1,0 +1,5 @@
+vless://00000000-0000-0000-0000-000000000000@0.0.0.0:1?security=none&encryption=none&type=tcp#‼️%20Подписка%20устарела
+
+vless://00000000-0000-0000-0000-000000000000@0.0.0.0:1?security=none&encryption=none&type=tcp#🚫%20Обновите%20в%20%40izzzy_vpn_bot
+
+vless://00000000-0000-0000-0000-000000000000@0.0.0.0:1?security=none&encryption=none&type=tcp#‼️%20ЭТО%20ПОДПИСКА%20УЖЕ%20НЕ%20РАБОТАЕТ
